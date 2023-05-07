@@ -8,18 +8,83 @@
 #include <glm/vec2.hpp>
 #include <cmath>
 #include <random>
+#include <SFML/Graphics.hpp>
+#include <SFML/Window.hpp>
+#include <SFML/Audio.hpp>
+// #include <chrono>
+#include <unistd.h>
 
 static inline constexpr size_t _max_ = 123456789;
 
-static size_t seed = 0;
-
 auto& getRndGen() {
 	//std::cout << "ACCESS RND GEN: seed is " << seed << std::endl;
+	static std::random_device rd;  //Will be used to obtain a seed for the random number engine
+	static size_t seed = rd();
 	static std::mt19937 gen(seed);
 	return gen;
 }
 
-class Lynx
+enum class Terrain
+{
+	Foret,
+	Montagne,
+	Prairie,
+	Ville,
+	Eau
+};
+
+class Drawable_Thing
+{
+	sf::RectangleShape create_rect(size_t taille_brique, sf::Color &color)
+	{
+		sf::RectangleShape rectangle;
+		rectangle.setSize(sf::Vector2f(taille_brique, taille_brique));
+		rectangle.setFillColor(color);
+		rectangle.setPosition(position.x*taille_brique, position.y*taille_brique);
+		return rectangle;
+	}
+
+public:
+	void move(glm::ivec2 &delta, size_t taille_brique)
+	{
+		position += delta;
+		rectangle.setPosition(position.x*taille_brique, position.y*taille_brique);
+	}
+
+	Drawable_Thing(glm::ivec2 position, size_t taille_brique, sf::Color color) :
+		position(position),
+		rectangle(create_rect(taille_brique, color))
+	{
+	}
+
+	glm::ivec2 position;
+	sf::RectangleShape rectangle;
+};
+class Case : public Drawable_Thing
+{
+	sf::Color terrain_to_color(Terrain terrain)
+	{
+		static const std::map<Terrain, sf::Color> table {
+			{Terrain::Foret, sf::Color(0, 128, 0)},
+			{Terrain::Montagne, sf::Color(128, 128, 128)},
+			{Terrain::Prairie, sf::Color(255, 255, 0)},
+			{Terrain::Ville, sf::Color(0, 0, 0)},
+			{Terrain::Eau, sf::Color(100, 100, 255)}
+		};
+		return table.at(terrain);
+	}
+
+public:
+	Case(glm::ivec2 position, Terrain terrain, size_t taille_brique) :
+		Drawable_Thing(position, taille_brique, terrain_to_color(terrain)),
+		terrain(terrain)
+	{
+	}
+
+	Terrain terrain;
+};
+
+class Lynx : public Drawable_Thing
 {
 public:
 	// Distance de déplacement en fonction de la qualité de l'habitat. 
@@ -51,22 +116,22 @@ public:
 		auto vec = glm::ivec2(0, 0);
 		double u = (double)distrib(gen)/(double)_max_;
 		double qterrainEst;
-		if (position.x+1 == dimensions.x) // Est
+		if (position.x+1 > dimensions.x-1) // Est
 			qterrainEst = 0;
 		else
 			qterrainEst = qualite.at(carte.at(position.y).at(position.x+1));
 		double qterrainOuest;
-		if (position.x-1 == 0) // Ouest
+		if (position.x-1 < 0) // Ouest
 			qterrainOuest = 0;
 		else
 			qterrainOuest = qualite.at(carte.at(position.y).at(position.x-1));
 		double qterrainSud;
-		if (position.y+1 == dimensions.y) // Sud
+		if (position.y+1 > dimensions.y-1) // Sud
 			qterrainSud = 0;
 		else
 			qterrainSud = qualite.at(carte.at(position.y+1).at(position.x));
 		double qterrainNord;
-		if (position.y-1 == 0) // Nord
+		if (position.y-1 < 0) // Nord
 			qterrainNord = 0;
 		else
 			qterrainNord = qualite.at(carte.at(position.y-1).at(position.x));
@@ -134,9 +199,9 @@ public:
 	}	
 	
 	// Renvoie le statut S,I,R du lynx et son état énergétique (mort ou vivant avec le niveau énergétique). Effectue la modification de position consécutive au déplacement.
-	std::pair<size_t, bool> deplacement(std::vector<std::vector<size_t>> &carte, std::vector<Lynx> &lynx, std::vector<double> &qualite, double dconst, double b, std::vector<double> &delta, double Vision, glm::ivec2 &dimensions)
+	std::pair<size_t, bool> deplacement(std::vector<std::vector<size_t>> &carte, std::vector<Lynx> &lynx, std::vector<double> &qualite, double dconst, double b, std::vector<double> &delta, double Vision, glm::ivec2 &dimensions, size_t taille_brique)
 	{
-		std::cout << "pos: " << position.x << " " << position.y << std::endl;
+		// std::cout << "pos: " << position.x << " " << position.y << std::endl;
 		size_t terrain = carte.at(position.y).at(position.x);
 		// std::cout << "terrain: " << terrain << std::endl;
 		size_t dist = distance(qualite.at(terrain));
@@ -149,8 +214,8 @@ public:
 			energie -= delta.at(terrain);
 			// std::cout << "energie: " << energie << std::endl;
 			auto direc = direction_free(dimensions, qualite, carte);
-			position += direc;
-			// std::cout << "deplacement: " << x << position << std::endl;
+			move(direc, taille_brique);
+			// std::cout << "deplacement: " << position.x << " " << position.y << std::endl;
 		}
 		// std::cout << "directon_densite: " << direction_densite(lynx) << std::endl;
 		auto res = direction_densite(lynx, Vision, dimensions);
@@ -160,12 +225,12 @@ public:
 		for (size_t x = 0; x < X.size(); x++) {
 			terrain = carte.at(position.y).at(position.x);
 			energie -= delta.at(terrain);
-			position += X[x];
+			move(X.at(x), taille_brique);
 		}
 		for (size_t y = 0; y < Y.size(); y++) {
 			terrain = carte.at(position.y).at(position.x);
 			energie -= delta.at(terrain);
-			position += Y[y];  
+			move(Y.at(y), taille_brique);
 		}
 		age += 1;
 		statut = class_age();
@@ -188,21 +253,21 @@ public:
 	}
 	
 	// Initialise les caractéristiques des nouveaux individus
-	Lynx(glm::ivec2 position, size_t age, double energie) :
-		position(position),
+	Lynx(glm::ivec2 position, size_t taille_brique, sf::Color color, size_t age, double energie) :
+		Drawable_Thing(position, taille_brique, color),
 		age(age),
 		statut(class_age()),
 		energie(energie)
 	{
 	}
 
-	glm::ivec2 position;
 	size_t age;
 	size_t statut;
 	double energie;
 };
 
 bool is_in_vector(size_t value, std::vector<size_t> &vector);
+int pos_in_vector(size_t value, std::vector<size_t> &vector);
 double qualite_carte(glm::ivec2 &dimensions, std::vector<double> &qualite, std::vector<std::vector<size_t>> &carte, double area);
 double norme(glm::vec2 &vec1, glm::vec2 &vec2);
 std::vector<size_t> naissances_lynx(std::vector<Lynx> &lynx, double K, double oscillation, double ksi);
