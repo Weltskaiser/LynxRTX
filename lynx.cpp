@@ -17,12 +17,12 @@ int pos_in_vector(size_t value, std::vector<size_t> &vector)
 	return -1;
 }
 
-double qualite_carte(glm::ivec2 &dimensions, std::vector<double> &qualite, std::vector<std::vector<size_t>> &carte, double area)
+double qualite_carte(glm::ivec2 &dimensions, std::vector<double> &qualite, std::vector<std::vector<Terrain>> &carte, double area)
 {
 	double q = 0;
 	for (int j = 0; j < dimensions.y; j++)
 		for (int i = 0; i < dimensions.x; i++)
-			q += qualite.at(carte.at(j).at(i));
+			q += qualite.at((size_t)carte.at(j).at(i));
 	return q / area;
 }
 
@@ -31,10 +31,30 @@ double norme(glm::vec2 &vec1, glm::vec2 &vec2)
 	return std::pow(std::pow(vec1.x-vec2.x, 2)+std::pow(vec1.y-vec2.y, 2), 0.5);
 }
 
+void scratch_sort_statut(std::vector<Lynx> &lynx)
+{
+	bool sorted = false;
+	while (sorted == false) {
+		sorted = true;
+		for (size_t i = 0; i < lynx.size()-1; i++) {
+			if (lynx.at(i).statut > lynx.at(i+1).statut) {
+				auto temp = lynx.at(i);
+				lynx.at(i) = lynx.at(i+1);
+				lynx.at(i+1) = temp;
+				sorted = false;
+			}
+		}
+	}
+}
+
 // Calcule le nombre de lynx qui naissent cette année, et renvoie les indices de leurs parents
 std::vector<size_t> naissances_lynx(std::vector<Lynx> &lynx, double K, double oscillation, double ksi)
 {
-	std::sort(lynx.begin(), lynx.end(), [](Lynx lynx1, Lynx lynx2){return lynx1.statut < lynx2.statut;});
+	// std::sort(lynx.begin(), lynx.end(), [](Lynx lynx1, Lynx lynx2){return lynx1.statut < lynx2.statut;});
+	scratch_sort_statut(lynx);
+	// for (auto &l : lynx) {
+	// 	std::cout << "lynx ap " << l.position.x << " " << l.position.y << " " << l.age << " " << l.statut << std::endl;
+	// }
 	size_t nbS = nombre_lynx_categorie(lynx, 0);
 	size_t nbI = nombre_lynx_categorie(lynx, 1);
 	size_t nombre_naissances = binomiale(nbI, (std::pow(1-lynx.size()/K, oscillation)) * ksi);
@@ -45,7 +65,7 @@ std::vector<size_t> naissances_lynx(std::vector<Lynx> &lynx, double K, double os
 	for (size_t k = nbS; k < nbS+nbI; k++) {
 		indices_I.emplace_back(k);
 	}
-	std::random_shuffle(indices_I.begin(), indices_I.end());
+	// std::random_shuffle(indices_I.begin(), indices_I.end());
 	for (size_t n = 0; n < nombre_naissances; n++) {
 		indices_naissances.emplace_back(indices_I.at(n));
 		// std::cout << indices_I.at(n) << "!" << std::endl;
@@ -76,66 +96,77 @@ size_t nombre_lynx_age(std::vector<Lynx> &lynx, size_t age)
 // Modélisation d'une variable X suivant une loi binomiale de paramètres (n,p)
 size_t binomiale(size_t n, double p)
 {
-	auto& gen = getRndGen();
+	// auto& gen = getRndGen();
 	std::uniform_int_distribution<> distrib(0, _max_);
 	size_t X = 0;
 	for (size_t i = 0; i < n; i++) {
-		double u = (double)distrib(gen)/(double)_max_;
+		// double u = (double)distrib(gen)/(double)_max_;
+		double u = gener.at(gener_i);
+		gener_i++;
+		// std::cout << "random: binomiale " << gener_i << " / ";
 		if (u < p)
 			X += 1;
 	}
+	// std::cout << std::endl;
 	return X;
 }
 
 // Calcule le nombre de lynx allant mourir dans chaque catégorie d'âge et renvoie la nouvelle population (survivants)
 void mortalite_risque(std::vector<Lynx> &lynx, std::vector<std::vector<bool>> &carte_routiere, double traffic, std::vector<double> &Taux_de_mortalites, std::vector<double> &Vulnerabilite, double chasse, size_t &nombre_morts_S, size_t &nombre_morts_I, size_t &nombre_morts_R, size_t &lynx_morts_route, size_t &nombre_morts_chasse)
 {
-	auto& gen = getRndGen();
+	// auto& gen = getRndGen();
 	std::uniform_int_distribution<> distrib(0, _max_);
 	// std::cout << "lynx" << lynx.size() << std::endl;
 	lynx_morts_route = 0;
 	for (size_t l = 0; l < lynx.size(); l++) {
 		size_t d = l-lynx_morts_route;
 		if (carte_routiere.at(lynx.at(d).position.y).at(lynx.at(d).position.x) == true) {
-			double u = (double)distrib(gen)/(double)_max_;
+			// double u = (double)distrib(gen)/(double)_max_;
+			double u = gener.at(gener_i);
+			gener_i++;
+			// std::cout << "random: mortalite_risque " << gener_i << std::endl;
 			if (u < traffic) {
 				lynx.erase(lynx.begin()+d);
-				std::cout << "RIP lynx sur le côté de la route" << std::endl;
+				// std::cout << "RIP lynx sur le côté de la route" << std::endl;
 				lynx_morts_route += 1;
 			}
 		}
 	}
-	std::sort(lynx.begin(), lynx.end(), [](Lynx lynx1, Lynx lynx2){return lynx1.statut < lynx2.statut;});
+	// std::sort(lynx.begin(), lynx.end(), [](Lynx lynx1, Lynx lynx2){return lynx1.statut < lynx2.statut;});
+	scratch_sort_statut(lynx);
+	// for (auto &l : lynx) {
+	// 	std::cout << "lynx m ap " << l.position.x << " " << l.position.y << " " << l.age << " " << l.statut << std::endl;
+	// }
 	size_t nbS = nombre_lynx_categorie(lynx, 0);
 	size_t nbI = nombre_lynx_categorie(lynx, 1);
 	size_t nbR = nombre_lynx_categorie(lynx, 2);
 	nombre_morts_S = binomiale(nbS, Taux_de_mortalites.at(0)*0.5);
-	nombre_morts_I = binomiale(nbI, Taux_de_mortalites.at(1)/13);
+	nombre_morts_I = binomiale(nbI, Taux_de_mortalites.at(1)/13.0);
 	nombre_morts_R = binomiale(nbR, Taux_de_mortalites.at(2));
-	// std::cout << nombre_morts_S << " " << nombre_morts_I << " " << nombre_morts_R << std::endl;
+	// std::cout << "Mortalité SIR naturelle : " << nombre_morts_S << " " << nombre_morts_I << " " << nombre_morts_R << std::endl;
 	size_t nombre_morts_nat = nombre_morts_S+nombre_morts_I+nombre_morts_R;
 	nombre_morts_S += binomiale(nbS-nombre_morts_S, Vulnerabilite.at(0)*chasse);
 	nombre_morts_I += binomiale(nbI-nombre_morts_I, Vulnerabilite.at(1)*chasse);
 	nombre_morts_R += binomiale(nbR-nombre_morts_R, Vulnerabilite.at(2)*chasse);
 	size_t nombre_morts_tot = nombre_morts_S+nombre_morts_I+nombre_morts_R;
 	nombre_morts_chasse = nombre_morts_tot-nombre_morts_nat;
-	// std::cout << nombre_morts_S << nombre_morts_I << nombre_morts_R;
+	// std::cout << "Mortalité SIR + chasse : " << nombre_morts_S << " " << nombre_morts_I << " " << nombre_morts_R << std::endl;
 	auto indices_morts = std::vector<size_t>();
 	auto indices_S = std::vector<size_t>();
 	for (size_t k = 0; k < nbS; k++) {
 		indices_S.emplace_back(k);
 	}
-	std::random_shuffle(indices_S.begin(), indices_S.end());
+	// std::random_shuffle(indices_S.begin(), indices_S.end());
 	auto indices_I = std::vector<size_t>();
 	for (size_t k = nbS; k < nbS+nbI; k++) {
 		indices_I.emplace_back(k);
 	}
-	std::random_shuffle(indices_I.begin(), indices_I.end());
+	// std::random_shuffle(indices_I.begin(), indices_I.end());
 	auto indices_R = std::vector<size_t>();
-	for (size_t k = 0; k < nbS+nbI+nbR; k++) {
+	for (size_t k = nbS+nbI; k < nbS+nbI+nbR; k++) {
 		indices_R.emplace_back(k);
 	}
-	std::random_shuffle(indices_R.begin(), indices_R.end());
+	// std::random_shuffle(indices_R.begin(), indices_R.end());
 	for (size_t n = 0 ; n < nombre_morts_S; n++) {
 		indices_morts.emplace_back(indices_S.at(n));
 	}
@@ -145,18 +176,24 @@ void mortalite_risque(std::vector<Lynx> &lynx, std::vector<std::vector<bool>> &c
 	for (size_t n = 0 ; n < nombre_morts_R; n++) {
 		indices_morts.emplace_back(indices_R.at(n));
 	}
+	// std::cout << "indices_morts : ";
+	// for (auto &i : indices_morts) {
+	// 	std::cout << i << " ";
+	// }
+	// std::cout << std::endl;
 	for (int k = lynx.size()-1; k >= 0; k--) {
 		if (is_in_vector(k, indices_morts)) {
+			// std::cout << "Lynx mort naturelle " << lynx.at(k).position.x << " " << lynx.at(k).position.y << " " << lynx.at(k).age << std::endl;
 			lynx.erase(lynx.begin()+k);
-			// std::cout << "Lynx mort naturelle" << std::endl;
 		}
 	}
 }
 
-int main(void)
-// int main(int argc, char **argv)
+// int main(void)
+int main(int argc, char **argv)
 {
-	auto& gen = getRndGen();
+	// test();
+	// auto& gen = getRndGen();
 	std::uniform_int_distribution<> distrib(0, _max_);
 
 	// Coefficient de perte d'énergie lié au déplacement d'une case dans un habitat
@@ -187,7 +224,7 @@ int main(void)
 	// Nombre de simulations
 	size_t NSimul = 1;
 	// Nombre d'années de simulation
-	size_t Years = 1000;
+	size_t Years = 2000;
 	// Compartiments de population
 	auto Compartiments = std::vector<std::string>({"S", "I", "R"});
 	// Distance de territoire
@@ -195,15 +232,32 @@ int main(void)
 	// Nombre de km par pixel de la carte de France téléchargée
 	// size_t km_par_px = 1;
 
-	auto dimensions = glm::ivec2(100, 100);
-	auto carte = std::vector<std::vector<size_t>>();
-	for (int i = 0; i < dimensions.y; i++) {
-		auto row = std::vector<size_t>();
-		for (int j = 0; j < dimensions.x; j++) {
-			row.emplace_back(0);
+	auto dimensions = glm::ivec2(50, 50);
+
+	sf::RenderWindow window(sf::VideoMode(1000, 1000), "Lynx RTX Ultra");
+	// auto view = sf::View();
+	window.setVerticalSyncEnabled(false);
+
+
+	auto carte = std::vector<std::vector<Terrain>>();
+	if (argc == 2) {
+		auto carte_input = argv[1];
+		charger_France(carte_input, carte);
+	}
+
+	size_t taille_brique = 19;
+	auto cases = std::vector<Case>();
+	for (int j = 0; j < dimensions.y; j++) {
+		auto row = std::vector<Terrain>();
+		for (int i = 0; i < dimensions.x; i++) {
+			auto position = glm::ivec2(i, j);
+			auto terrain = Terrain::Prairie;
+			cases.emplace_back(Case(position, terrain, taille_brique));
+			row.emplace_back(terrain);
 		}
 		carte.emplace_back(row);
 	}
+
 	size_t area = dimensions.y * dimensions.x;
 
 	// double Qmoyenne263 = 0.35*qualite.at(0) + 0.6*qualite.at(2) + 0.04*qualite.at(3) + 0.01*qualite.at(4);
@@ -212,7 +266,8 @@ int main(void)
 	double K = Qcarte / Qmoyenne263 * 2.63;
 	std::cout << "Qcarte: " << Qcarte << std::endl;
 	std::cout << "K: " << K << std::endl;
-	K *= area/100;
+	K *= (double)area / 100.0;
+	std::cout << "K: " << K << std::endl;
 
 	auto carte_routiere = std::vector<std::vector<bool>>();
 	for (int j = 0; j < dimensions.y; j++) {
@@ -270,30 +325,22 @@ int main(void)
 	for (size_t g = 0; g < NSimul; g++) {
 		std::cout << "Simulation " << g << std::endl;
 
-		sf::RenderWindow window(sf::VideoMode(1680, 980), "Lynx RTX Ultra");
-		// auto view = sf::View();
-		window.setVerticalSyncEnabled(true);
-
-		size_t taille_brique = 10;
-		auto cases = std::vector<Case>();
-		for (size_t j = 0; j < carte.size(); j++) {
-			for (size_t i = 0; i < carte.at(j).size(); i++) {
-				auto position = glm::ivec2(i, j);
-				auto terrain = Terrain::Foret;
-				cases.emplace_back(Case(position, terrain, taille_brique));
-			}
-		}
-
 		auto lynx = std::vector<Lynx>();
+		lynx.emplace_back(Lynx(glm::ivec2(5, 5), taille_brique, sf::Color(255, 0, 0, 128), 3, 100));
+		lynx.emplace_back(Lynx(glm::ivec2(10, 10), taille_brique, sf::Color(255, 0, 0, 128), 4, 100));
+		lynx.emplace_back(Lynx(glm::ivec2(15, 15), taille_brique, sf::Color(255, 0, 0, 128), 5, 100));
+		lynx.emplace_back(Lynx(glm::ivec2(20, 20), taille_brique, sf::Color(255, 0, 0, 128), 6, 100));
+		lynx.emplace_back(Lynx(glm::ivec2(25, 25), taille_brique, sf::Color(255, 0, 0, 128), 7, 100));
+		lynx.emplace_back(Lynx(glm::ivec2(30, 30), taille_brique, sf::Color(255, 0, 0, 128), 8, 100));
 		// Pour lâcher aléatoirement (position et âge) un nombre voulu de lynx 
-		size_t nb_lynx = 5;
-		for (size_t i = 0; i < nb_lynx; i++) {
-			size_t x = distrib(gen)%dimensions.x;
-			size_t y = distrib(gen)%dimensions.y;
-			size_t age = distrib(gen)%21;
-			double energie = 100;
-			lynx.emplace_back(Lynx(glm::ivec2(x, y), taille_brique, sf::Color(255, 0, 0), age, energie));
-		}
+		// size_t nb_lynx = 5;
+		// for (size_t i = 0; i < nb_lynx; i++) {
+		// 	size_t x = distrib(gen)%dimensions.x;
+		// 	size_t y = distrib(gen)%dimensions.y;
+		// 	size_t age = distrib(gen)%21;
+		// 	double energie = 100;
+		// 	lynx.emplace_back(Lynx(glm::ivec2(x, y), taille_brique, sf::Color(255, 0, 0, 128), age, energie));
+		// }
 		auto Mortalites = std::vector<std::vector<size_t>>();
 		auto Survivants = std::vector<std::vector<size_t>>();
 		for (size_t i = 0; i < Compartiments.size(); i++) {
@@ -325,7 +372,7 @@ int main(void)
 			}
 
 
-			// std::cout << "Simulation " << g << " ; Annee " << year << " ; survivants : " << lynx.size() << std::endl;
+			std::cout << "Simulation " << g << " ; Annee " << year << " ; survivants : " << lynx.size() << std::endl;
 			size_t nombre_morts_S;
 			size_t nombre_morts_I;
 			size_t nombre_morts_R;
@@ -338,29 +385,48 @@ int main(void)
 			Mortalites_routiere.at(year) += lynx_morts_route;
 			Mortalites_chasse.at(year) += nombre_morts_chasse;
 			auto indices_parents = naissances_lynx(lynx, K, oscillation, ksi);
-			// std::cout << "len: " << lynx.size()+indices_parents.size() << std::endl;
-			for (int l = lynx.size()-1; l >= 0; l--) {
-				auto result = lynx.at(l).deplacement(carte, lynx, qualite, dconst, b, delta, Vision, dimensions, taille_brique);
+			// std::cout << "lynx.size(): " << lynx.size() << " naissances: " << indices_parents.size() << std::endl;
+			// for (auto &l : lynx) {
+			// 	std::cout << "lynx " << l.position.x << " " << l.position.y << " " << l.age << std::endl;
+			// }
+			// for (int l = lynx.size()-1; l >= 0; l--) {
+			int lynx_morts = 0;
+			// std::cout << "indices_parents : ";
+			// for (auto &i : indices_parents) {
+			// 	std::cout << i << " ";
+			// }
+			// std::cout << std::endl;
+			int range_max = (int)(lynx.size()+indices_parents.size());
+			// std::cout << "range max : " << range_max << std::endl;
+			for (int l = 0; l < range_max; l++) {
+            			int d = l-lynx_morts;
+				auto result = lynx.at(d).deplacement(carte, lynx, qualite, dconst, b, delta, Vision, dimensions, taille_brique);
 				size_t statut = result.first;
 				size_t vivant = result.second;
 				while (is_in_vector(l, indices_parents)) {
 					// std::cout << "indices_parents: " << indices_parents << std::endl;
-					size_t x = lynx.at(l).position.x;
-					size_t y = lynx.at(l).position.y;
+					size_t x = lynx.at(d).position.x;
+					size_t y = lynx.at(d).position.y;
 					size_t age = 0;
 					double energie = 100;
-					lynx.emplace_back(Lynx(glm::ivec2(x, y), taille_brique, sf::Color(255, 0, 0), age, energie));
+					lynx.emplace_back(Lynx(glm::ivec2(x, y), taille_brique, sf::Color(255, 0, 0, 128), age, energie));
 					auto index = pos_in_vector(l, indices_parents);
 					indices_parents.erase(indices_parents.begin()+index);
+					// indices_parents.erase(indices_parents.begin()+l);
 				}
 				if (vivant == false) {
 					Mortalites.at(statut).at(year) += 1;
 					Mortalites_energetique.at(year) += 1;
-					lynx.erase(lynx.begin()+l);
+					lynx.erase(lynx.begin()+d);
 					std::cout << "Lynx mort energie" << std::endl;
+					lynx_morts++;
 				} else {
 					Survivants.at(statut).at(year) += 1;
 				}
+            			// std::cout << "l: " << l << " / d: " << d << std::endl;
+				// for (auto &ly : lynx) {
+				// 	std::cout << "lynx " << ly.position.x << " " << ly.position.y << " " << ly.age << std::endl;
+				// }
 			}
 			// std::cout << "Survivants S, I, R :" << Survivants.at(0).at(year) << " " << Survivants.at(1).at(year) << " " << Survivants.at(2).at(year) << std::endl;
 			// fig, ax = plt.subplots()
@@ -379,6 +445,7 @@ int main(void)
 				lynx_couleur.at(l.position.y).at(l.position.x) += 1;
 				carte_densite.at(l.position.y).at(l.position.x) += 1;
 			}
+			// std::cout << std::endl;
 			// std::cout << lynx_couleur;
 			// for i in range(dimensions[0]):
 			// 	for j in range(dimensions[1]):
@@ -412,8 +479,8 @@ int main(void)
 			if (sf::Keyboard::isKeyPressed(sf::Keyboard::LControl) || year == Years) {
 				window.close();
 			}
-			usleep(1 * 1000000);
 		}
+		// usleep(5 * 1000000.0);
 		if (Survivants.at(1).at(int(24*Years/100))+Survivants.at(0).at(int(24*Years/100)) > 0)
 			Nb_Succes_25 += 1;
 		if (Survivants.at(1).at(int(49*Years/100))+Survivants.at(0).at(int(49*Years/100)) > 0)

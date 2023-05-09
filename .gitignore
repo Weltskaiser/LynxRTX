@@ -1,3 +1,4 @@
 .vscode
 LYNX_RTX
 *.o
+*.cfl
