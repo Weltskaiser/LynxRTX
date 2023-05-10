@@ -36,7 +36,7 @@ void scratch_sort_statut(std::vector<Lynx> &lynx)
 	bool sorted = false;
 	while (sorted == false) {
 		sorted = true;
-		for (size_t i = 0; i < lynx.size()-1; i++) {
+		for (int i = 0; i < (int)lynx.size()-1; i++) {
 			if (lynx.at(i).statut > lynx.at(i+1).statut) {
 				auto temp = lynx.at(i);
 				lynx.at(i) = lynx.at(i+1);
@@ -96,13 +96,12 @@ size_t nombre_lynx_age(std::vector<Lynx> &lynx, size_t age)
 // Modélisation d'une variable X suivant une loi binomiale de paramètres (n,p)
 size_t binomiale(size_t n, double p)
 {
-	// auto& gen = getRndGen();
+	auto& gen = getRndGen();
 	std::uniform_int_distribution<> distrib(0, _max_);
 	size_t X = 0;
 	for (size_t i = 0; i < n; i++) {
-		// double u = (double)distrib(gen)/(double)_max_;
-		double u = gener.at(gener_i);
-		gener_i++;
+		double u = (double)distrib(gen)/(double)_max_;
+		// double u = scratch_random();
 		// std::cout << "random: binomiale " << gener_i << " / ";
 		if (u < p)
 			X += 1;
@@ -114,16 +113,15 @@ size_t binomiale(size_t n, double p)
 // Calcule le nombre de lynx allant mourir dans chaque catégorie d'âge et renvoie la nouvelle population (survivants)
 void mortalite_risque(std::vector<Lynx> &lynx, std::vector<std::vector<bool>> &carte_routiere, double traffic, std::vector<double> &Taux_de_mortalites, std::vector<double> &Vulnerabilite, double chasse, size_t &nombre_morts_S, size_t &nombre_morts_I, size_t &nombre_morts_R, size_t &lynx_morts_route, size_t &nombre_morts_chasse)
 {
-	// auto& gen = getRndGen();
+	auto& gen = getRndGen();
 	std::uniform_int_distribution<> distrib(0, _max_);
 	// std::cout << "lynx" << lynx.size() << std::endl;
 	lynx_morts_route = 0;
 	for (size_t l = 0; l < lynx.size(); l++) {
 		size_t d = l-lynx_morts_route;
 		if (carte_routiere.at(lynx.at(d).position.y).at(lynx.at(d).position.x) == true) {
-			// double u = (double)distrib(gen)/(double)_max_;
-			double u = gener.at(gener_i);
-			gener_i++;
+			double u = (double)distrib(gen)/(double)_max_;
+			// double u = scratch_random();
 			// std::cout << "random: mortalite_risque " << gener_i << std::endl;
 			if (u < traffic) {
 				lynx.erase(lynx.begin()+d);
@@ -192,8 +190,11 @@ void mortalite_risque(std::vector<Lynx> &lynx, std::vector<std::vector<bool>> &c
 // int main(void)
 int main(int argc, char **argv)
 {
+	if (argc != 3) {
+		throw std::invalid_argument("Expected two arguments: map.cfl, simulation_years");
+	}
 	// test();
-	// auto& gen = getRndGen();
+	auto& gen = getRndGen();
 	std::uniform_int_distribution<> distrib(0, _max_);
 
 	// Coefficient de perte d'énergie lié au déplacement d'une case dans un habitat
@@ -224,39 +225,49 @@ int main(int argc, char **argv)
 	// Nombre de simulations
 	size_t NSimul = 1;
 	// Nombre d'années de simulation
-	size_t Years = 2000;
+	size_t Years = std::stoi(argv[2]);
 	// Compartiments de population
 	auto Compartiments = std::vector<std::string>({"S", "I", "R"});
 	// Distance de territoire
 	double Vision = 5;
 	// Nombre de km par pixel de la carte de France téléchargée
-	// size_t km_par_px = 1;
+	int km_par_px = 1;
 
-	auto dimensions = glm::ivec2(50, 50);
-
-	sf::RenderWindow window(sf::VideoMode(1000, 1000), "Lynx RTX Ultra");
-	// auto view = sf::View();
-	window.setVerticalSyncEnabled(false);
+	// auto dimensions = glm::ivec2(50, 50);
 
 
 	auto carte = std::vector<std::vector<Terrain>>();
-	if (argc == 2) {
+	glm::ivec2 dimensions;
+	if (argc == 2 || true) {
 		auto carte_input = argv[1];
-		charger_France(carte_input, carte);
+		charger_France(carte_input, carte, dimensions, km_par_px);
 	}
 
-	size_t taille_brique = 19;
-	auto cases = std::vector<Case>();
-	for (int j = 0; j < dimensions.y; j++) {
-		auto row = std::vector<Terrain>();
-		for (int i = 0; i < dimensions.x; i++) {
-			auto position = glm::ivec2(i, j);
-			auto terrain = Terrain::Prairie;
-			cases.emplace_back(Case(position, terrain, taille_brique));
-			row.emplace_back(terrain);
-		}
-		carte.emplace_back(row);
-	}
+	// auto screen_size = sf::VideoMode::getDesktopMode();
+	// size_t width = screen_size.width;
+	// size_t height = screen_size.height;
+	// float f = 0.9;
+	size_t taille_brique = 0;
+	// if ((double)dimensions.x/(double)width > (double)dimensions.y/(double)height) {
+	// 	width *= f;
+	// 	taille_brique = width/dimensions.x;
+	// 	height = taille_brique*dimensions.y;
+	// } else {
+	// 	height *= f;
+	// 	taille_brique = height/dimensions.y;
+	// 	width = taille_brique*dimensions.x;
+	// }
+	// sf::RenderWindow window(sf::VideoMode(width, height), "Lynx RTX Ultra");
+	// window.setVerticalSyncEnabled(false);
+
+	// auto cases = std::vector<Case>();
+	// for (int j = 0; j < dimensions.y; j++) {
+	// 	for (int i = 0; i < dimensions.x; i++) {
+	// 		auto position = glm::ivec2(i, j);
+	// 		auto terrain = carte.at(j).at(i);
+	// 		cases.emplace_back(Case(position, terrain, taille_brique));
+	// 	}
+	// }
 
 	size_t area = dimensions.y * dimensions.x;
 
@@ -285,32 +296,9 @@ int main(int argc, char **argv)
 	// for (size_t i = 0; i < 50; i++)
 	// 	couleurs_lynx.append(sf::Color(255, 255, 255));
 
-	// pg.display.init()
-	// objet_info = pg.display.Info()
-	// f = 0.9
-	// taille_ecran = (int(objet_info.current_w),int(objet_info.current_h))
-	// if (dimensions.x/objet_info.current_w > dimensions.y/objet_info.current_h) { // axe x limitant
-	// 	width = int(objet_info.current_w*f)
-	// 	taille_brique = width/dimensions[0]
-	// 	height = taille_brique*dimensions[1]
-	// 	print("OUI")
-	// } else {
-	// 	height = int(objet_info.current_h*f)
-	// 	taille_brique = height/dimensions[1]
-	// 	width = taille_brique*dimensions[0]
-	// 	print("NON")
-	// }
-	// print("w, h", width, height)
-	// taille_ecran = (width, height)
-	// print("tb", taille_brique)
-	// print("w*tb", width/taille_brique)
-	// print("len(carte), taille_ecran", len(carte), taille_ecran)
-	// ecran = pg.display.set_mode(taille_ecran)
-	// # ecran = pg.display.set_mode(taille_ecran, pg.FULLSCREEN)
-
-	auto carte_densite = std::vector<std::vector<size_t>>();
+	auto carte_densite = std::vector<std::vector<double>>();
 	for (int j = 0; j < dimensions.y; j++) {
-		auto ligne = std::vector<size_t>();
+		auto ligne = std::vector<double>();
 		for (int i = 0; i < dimensions.x; i++) {
 			ligne.emplace_back(0);
 		}
@@ -326,21 +314,24 @@ int main(int argc, char **argv)
 		std::cout << "Simulation " << g << std::endl;
 
 		auto lynx = std::vector<Lynx>();
-		lynx.emplace_back(Lynx(glm::ivec2(5, 5), taille_brique, sf::Color(255, 0, 0, 128), 3, 100));
-		lynx.emplace_back(Lynx(glm::ivec2(10, 10), taille_brique, sf::Color(255, 0, 0, 128), 4, 100));
-		lynx.emplace_back(Lynx(glm::ivec2(15, 15), taille_brique, sf::Color(255, 0, 0, 128), 5, 100));
-		lynx.emplace_back(Lynx(glm::ivec2(20, 20), taille_brique, sf::Color(255, 0, 0, 128), 6, 100));
-		lynx.emplace_back(Lynx(glm::ivec2(25, 25), taille_brique, sf::Color(255, 0, 0, 128), 7, 100));
-		lynx.emplace_back(Lynx(glm::ivec2(30, 30), taille_brique, sf::Color(255, 0, 0, 128), 8, 100));
+		// lynx.emplace_back(Lynx(glm::ivec2(5, 5), taille_brique, 0.9, sf::Color(255, 0, 0, 128), 3, 100));
+		// lynx.emplace_back(Lynx(glm::ivec2(10, 10), taille_brique, 0.9, sf::Color(255, 0, 0, 128), 4, 100));
+		// lynx.emplace_back(Lynx(glm::ivec2(15, 15), taille_brique, 0.9, sf::Color(255, 0, 0, 128), 5, 100));
+		// lynx.emplace_back(Lynx(glm::ivec2(20, 20), taille_brique, 0.9, sf::Color(255, 0, 0, 128), 6, 100));
+		// lynx.emplace_back(Lynx(glm::ivec2(25, 25), taille_brique, 0.9, sf::Color(255, 0, 0, 128), 7, 100));
+		// lynx.emplace_back(Lynx(glm::ivec2(30, 30), taille_brique, 0.9, sf::Color(255, 0, 0, 128), 8, 100));
 		// Pour lâcher aléatoirement (position et âge) un nombre voulu de lynx 
-		// size_t nb_lynx = 5;
-		// for (size_t i = 0; i < nb_lynx; i++) {
-		// 	size_t x = distrib(gen)%dimensions.x;
-		// 	size_t y = distrib(gen)%dimensions.y;
-		// 	size_t age = distrib(gen)%21;
-		// 	double energie = 100;
-		// 	lynx.emplace_back(Lynx(glm::ivec2(x, y), taille_brique, sf::Color(255, 0, 0, 128), age, energie));
-		// }
+		size_t nb_lynx = 5;
+		for (size_t i = 0; i < nb_lynx; i++) {
+			size_t x = distrib(gen)%dimensions.x;
+			size_t y = distrib(gen)%dimensions.y;
+			size_t age = distrib(gen)%21;
+			// size_t x = scratch_randint() % dimensions.x;
+			// size_t y = scratch_randint() % dimensions.y;
+			// size_t age = scratch_randint() % 10;
+			double energie = 100;
+			lynx.emplace_back(Lynx(glm::ivec2(x, y), taille_brique, 0.9, sf::Color(255, 0, 0, 128), age, energie));
+		}
 		auto Mortalites = std::vector<std::vector<size_t>>();
 		auto Survivants = std::vector<std::vector<size_t>>();
 		for (size_t i = 0; i < Compartiments.size(); i++) {
@@ -363,122 +354,110 @@ int main(int argc, char **argv)
 		}
 
 		size_t year = 0;
-		while (window.isOpen())
+		// while (window.isOpen())
+		while (true)
 		{
-			sf::Event event;
-			while (window.pollEvent(event)) {
-				if (event.type ==  sf::Event::Closed)
-					window.close();
-			}
+			// sf::Event event;
+			// while (window.pollEvent(event)) {
+			// 	if (event.type ==  sf::Event::Closed)
+			// 		window.close();
+			// }
 
 
-			std::cout << "Simulation " << g << " ; Annee " << year << " ; survivants : " << lynx.size() << std::endl;
-			size_t nombre_morts_S;
-			size_t nombre_morts_I;
-			size_t nombre_morts_R;
-			size_t lynx_morts_route;
-			size_t nombre_morts_chasse;
-			mortalite_risque(lynx, carte_routiere, traffic, Taux_de_mortalites, Vulnerabilite, chasse, nombre_morts_S, nombre_morts_I, nombre_morts_R, lynx_morts_route, nombre_morts_chasse);
-			Mortalites.at(0).at(year) += nombre_morts_S;
-			Mortalites.at(1).at(year) += nombre_morts_I;
-			Mortalites.at(2).at(year) += nombre_morts_R;
-			Mortalites_routiere.at(year) += lynx_morts_route;
-			Mortalites_chasse.at(year) += nombre_morts_chasse;
-			auto indices_parents = naissances_lynx(lynx, K, oscillation, ksi);
-			// std::cout << "lynx.size(): " << lynx.size() << " naissances: " << indices_parents.size() << std::endl;
-			// for (auto &l : lynx) {
-			// 	std::cout << "lynx " << l.position.x << " " << l.position.y << " " << l.age << std::endl;
-			// }
-			// for (int l = lynx.size()-1; l >= 0; l--) {
-			int lynx_morts = 0;
-			// std::cout << "indices_parents : ";
-			// for (auto &i : indices_parents) {
-			// 	std::cout << i << " ";
-			// }
-			// std::cout << std::endl;
-			int range_max = (int)(lynx.size()+indices_parents.size());
-			// std::cout << "range max : " << range_max << std::endl;
-			for (int l = 0; l < range_max; l++) {
-            			int d = l-lynx_morts;
-				auto result = lynx.at(d).deplacement(carte, lynx, qualite, dconst, b, delta, Vision, dimensions, taille_brique);
-				size_t statut = result.first;
-				size_t vivant = result.second;
-				while (is_in_vector(l, indices_parents)) {
-					// std::cout << "indices_parents: " << indices_parents << std::endl;
-					size_t x = lynx.at(d).position.x;
-					size_t y = lynx.at(d).position.y;
-					size_t age = 0;
-					double energie = 100;
-					lynx.emplace_back(Lynx(glm::ivec2(x, y), taille_brique, sf::Color(255, 0, 0, 128), age, energie));
-					auto index = pos_in_vector(l, indices_parents);
-					indices_parents.erase(indices_parents.begin()+index);
-					// indices_parents.erase(indices_parents.begin()+l);
+			if  (year < Years) {
+				// std::cout << "Simulation " << g << " ; Annee " << year << " ; survivants : " << lynx.size() << std::endl;
+				size_t nombre_morts_S;
+				size_t nombre_morts_I;
+				size_t nombre_morts_R;
+				size_t lynx_morts_route;
+				size_t nombre_morts_chasse;
+				mortalite_risque(lynx, carte_routiere, traffic, Taux_de_mortalites, Vulnerabilite, chasse, nombre_morts_S, nombre_morts_I, nombre_morts_R, lynx_morts_route, nombre_morts_chasse);
+				Mortalites.at(0).at(year) += nombre_morts_S;
+				Mortalites.at(1).at(year) += nombre_morts_I;
+				Mortalites.at(2).at(year) += nombre_morts_R;
+				Mortalites_routiere.at(year) += lynx_morts_route;
+				Mortalites_chasse.at(year) += nombre_morts_chasse;
+				auto indices_parents = naissances_lynx(lynx, K, oscillation, ksi);
+				// std::cout << "lynx.size(): " << lynx.size() << " naissances: " << indices_parents.size() << std::endl;
+				// for (auto &l : lynx) {
+				// 	std::cout << "lynx " << l.position.x << " " << l.position.y << " " << l.age << std::endl;
+				// }
+				// for (int l = lynx.size()-1; l >= 0; l--) {
+				int lynx_morts = 0;
+				// std::cout << "indices_parents : ";
+				// for (auto &i : indices_parents) {
+				// 	std::cout << i << " ";
+				// }
+				// std::cout << std::endl;
+				int range_max = (int)(lynx.size()+indices_parents.size());
+				// std::cout << "range max : " << range_max << std::endl;
+				for (int l = 0; l < range_max; l++) {
+					int d = l-lynx_morts;
+					auto result = lynx.at(d).deplacement(carte, lynx, qualite, dconst, b, delta, Vision, dimensions, taille_brique);
+					size_t statut = result.first;
+					size_t vivant = result.second;
+					while (is_in_vector(l, indices_parents)) {
+						// std::cout << "indices_parents: " << indices_parents << std::endl;
+						size_t x = lynx.at(d).position.x;
+						size_t y = lynx.at(d).position.y;
+						size_t age = 0;
+						double energie = 100;
+						lynx.emplace_back(Lynx(glm::ivec2(x, y), taille_brique, 0.9, sf::Color(255, 0, 0, 128), age, energie));
+						auto index = pos_in_vector(l, indices_parents);
+						indices_parents.erase(indices_parents.begin()+index);
+						// indices_parents.erase(indices_parents.begin()+l);
+					}
+					if (vivant == false) {
+						Mortalites.at(statut).at(year) += 1;
+						Mortalites_energetique.at(year) += 1;
+						lynx.erase(lynx.begin()+d);
+						// std::cout << "Lynx mort energie" << std::endl;
+						lynx_morts++;
+					} else {
+						Survivants.at(statut).at(year) += 1;
+					}
+					// std::cout << "l: " << l << " / d: " << d << std::endl;
 				}
-				if (vivant == false) {
-					Mortalites.at(statut).at(year) += 1;
-					Mortalites_energetique.at(year) += 1;
-					lynx.erase(lynx.begin()+d);
-					std::cout << "Lynx mort energie" << std::endl;
-					lynx_morts++;
-				} else {
-					Survivants.at(statut).at(year) += 1;
-				}
-            			// std::cout << "l: " << l << " / d: " << d << std::endl;
 				// for (auto &ly : lynx) {
 				// 	std::cout << "lynx " << ly.position.x << " " << ly.position.y << " " << ly.age << std::endl;
 				// }
-			}
-			// std::cout << "Survivants S, I, R :" << Survivants.at(0).at(year) << " " << Survivants.at(1).at(year) << " " << Survivants.at(2).at(year) << std::endl;
-			// fig, ax = plt.subplots()
-			// ax.set_xlim(0, dimensions[0])
-			// ax.set_ylim(dimensions[1], 0)
-			// plt.grid()
-			auto lynx_couleur = std::vector<std::vector<size_t>>();
-			for (int j = 0; j < dimensions.y; j++) {
-				auto ligne = std::vector<size_t>();
-				for (int i = 0; i < dimensions.x; i++) {
-					ligne.emplace_back(0);
+				// std::cout << "Survivants S, I, R :" << Survivants.at(0).at(year) << " " << Survivants.at(1).at(year) << " " << Survivants.at(2).at(year) << std::endl;
+				// fig, ax = plt.subplots()
+				// ax.set_xlim(0, dimensions[0])
+				// ax.set_ylim(dimensions[1], 0)
+				// plt.grid()
+				// auto lynx_couleur = std::vector<std::vector<size_t>>();
+				// for (int j = 0; j < dimensions.y; j++) {
+				// 	auto ligne = std::vector<size_t>();
+				// 	for (int i = 0; i < dimensions.x; i++) {
+				// 		ligne.emplace_back(0);
+				// 	}
+				// 	lynx_couleur.emplace_back(ligne);
+				// }
+				for (auto &l : lynx) {
+					// lynx_couleur.at(l.position.y).at(l.position.x) += 1;
+					carte_densite.at(l.position.y).at(l.position.x) += 1;
 				}
-				lynx_couleur.emplace_back(ligne);
+				year++;
+			} else if (year >= Years) {
+				break;
 			}
-			for (auto &l : lynx) {
-				lynx_couleur.at(l.position.y).at(l.position.x) += 1;
-				carte_densite.at(l.position.y).at(l.position.x) += 1;
-			}
-			// std::cout << std::endl;
-			// std::cout << lynx_couleur;
-			// for i in range(dimensions[0]):
-			// 	for j in range(dimensions[1]):
-			// 	couleur = couleurs_terrain[int(carte[j, i])]
-			// 	ax.add_patch(Rectangle((i, j), 1, 1, color=couleur))
-			// 	if lynx_couleur[j, i] != 0:
-			// 		# print(int(lynx_couleur[j, i]), couleurs_lynx)
-			// 		couleur = couleurs_lynx[int(lynx_couleur[j, i])]
-			// 		ax.add_patch(Rectangle((i+0.25, j+0.25), 0.5, 0.5, color=couleur))
-			// 	if carte_routiere[j, i] == 1:
-			// 		ax.add_patch(Rectangle((i, j), 1, 1, color="black", alpha=0.5))
-			// plt.show()
-			// affichage_ecran(ecran, dimensions, taille_brique, couleurs_terrain, couleurs_lynx, carte, carte_routiere, lynx_couleur)
-			// t.sleep(0.1)
-			// if terminer_programme(pg.K_LCTRL):
-			// break
 
 
-			window.clear(sf::Color::Black);
+			// window.clear(sf::Color::Black);
 
-			for (auto &c : cases) {
-				window.draw(c.rectangle);
-			}
-			for (auto &l : lynx) {
-				window.draw(l.rectangle);
-			}
-			
-			window.display();
-			year++;
+			// for (auto &c : cases) {
+			// 	window.draw(c.rectangle);
+			// }
+			// for (auto &l : lynx) {
+			// 	window.draw(l.rectangle);
+			// }
 
-			if (sf::Keyboard::isKeyPressed(sf::Keyboard::LControl) || year == Years) {
-				window.close();
-			}
+			// window.display();
+
+			// if (sf::Keyboard::isKeyPressed(sf::Keyboard::LControl)) {
+			// 	window.close();
+			// }
 		}
 		// usleep(5 * 1000000.0);
 		if (Survivants.at(1).at(int(24*Years/100))+Survivants.at(0).at(int(24*Years/100)) > 0)
@@ -490,16 +469,69 @@ int main(int argc, char **argv)
 		if (Survivants.at(1).at(int(99*Years/100))+Survivants.at(0).at(int(99*Years/100)) > 0)
 			Nb_Succes_100 += 1;
 		std::cout << Nb_Succes_25 << " " << Nb_Succes_50 << " " << Nb_Succes_75 << " " << Nb_Succes_100 << std::endl;
-		for (size_t j = 0; j < carte_densite.size(); j++)
-			for (size_t i = 0; i < carte_densite.at(j).size(); i++)
-				carte_densite.at(j).at(i) *= 20/year;
 	}
-	// while True
-	// affichage_densite(ecran, dimensions, taille_brique, couleurs_terrain, carte, carte_routiere, carte_densite)
-	// t.sleep(0.01)
-	// if terminer_programme(pg.K_LSHIFT):
-	// 	break
-	// pg.display.quit()
+
+	auto screen_size = sf::VideoMode::getDesktopMode();
+	size_t width = screen_size.width;
+	size_t height = screen_size.height;
+	float f = 0.9;
+	// size_t taille_brique = 0;
+	if ((double)dimensions.x/(double)width > (double)dimensions.y/(double)height) {
+		width *= f;
+		taille_brique = width/dimensions.x;
+		height = taille_brique*dimensions.y;
+	} else {
+		height *= f;
+		taille_brique = height/dimensions.y;
+		width = taille_brique*dimensions.x;
+	}
+	sf::RenderWindow window(sf::VideoMode(width, height), "Lynx RTX Ultra");
+	window.setVerticalSyncEnabled(false);
+
+	auto cases = std::vector<Case>();
+	for (int j = 0; j < dimensions.y; j++) {
+		for (int i = 0; i < dimensions.x; i++) {
+			auto position = glm::ivec2(i, j);
+			auto terrain = carte.at(j).at(i);
+			cases.emplace_back(Case(position, terrain, taille_brique));
+		}
+	}
+
+	for (size_t j = 0; j < carte_densite.size(); j++)
+		for (size_t i = 0; i < carte_densite.at(j).size(); i++)
+			carte_densite.at(j).at(i) *= 20.0 / (double)Years / (double)NSimul;
+
+	auto lynx = std::vector<Lynx>();
+	for (int j = 0; j < dimensions.y; j++) {
+		for (int i = 0; i < dimensions.y; i++) {
+			double size = carte_densite.at(j).at(i);
+			lynx.emplace_back(Lynx(glm::ivec2(i, j), taille_brique, size, sf::Color(255, 0, 0, 128), 0, 0));
+		}
+	}
+
+	while (window.isOpen())
+	{
+		sf::Event event;
+		while (window.pollEvent(event)) {
+			if (event.type ==  sf::Event::Closed)
+				window.close();
+		}
+
+		window.clear(sf::Color::Black);
+
+		for (auto &c : cases) {
+			window.draw(c.rectangle);
+		}
+		for (auto &l : lynx) {
+			window.draw(l.rectangle);
+		}
+
+		window.display();
+
+		if (sf::Keyboard::isKeyPressed(sf::Keyboard::LControl)) {
+			window.close();
+		}
+	}
 
 	return 0;
 }

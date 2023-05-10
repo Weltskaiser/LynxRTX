@@ -26,17 +26,33 @@ auto& getRndGen() {
 }
 
 // x0=seed; a=multiplier; b=increment; m=modulus; n=desired array length; 
-std::vector<double> linearRandomGenerator(size_t x0, size_t a, size_t b, size_t m, size_t n) 
+std::vector<size_t> linearRandomGenerator(size_t x0, size_t a, size_t b, size_t m, size_t n) 
 {
-	auto results = std::vector<double>();
+	auto results = std::vector<size_t>();
 	for (size_t i = 0; i < n; i++) {
 		x0 = (a * x0 + b) % m;
-		results.emplace_back((double)x0/(double)m);
+		results.emplace_back(x0);
 	}
 	return results;
 }
 auto gener = linearRandomGenerator(546834, 28402348, 12367824, 123456789, 10000000);
 size_t gener_i = 0;
+
+double scratch_random(void)
+{
+	double u = (double)gener.at(gener_i)/(double)_max_;
+	gener_i++;
+	if (gener_i >= 9999999) gener_i = 0;
+	return u;
+}
+
+int scratch_randint(void)
+{
+	int x = gener.at(gener_i);
+	gener_i++;
+	if (gener_i >= 9999999) gener_i = 0;
+	return x;
+}
 
 size_t scratch_norm(std::vector<double> typ)
 {
@@ -51,12 +67,11 @@ size_t scratch_norm(std::vector<double> typ)
 	} else {
 		throw std::invalid_argument("scratch_norm: unexpected typ");
 	}
-	double u = gener.at(gener_i);
-	gener_i += 1;
+	// double u = scratch_random();
 	// std::cout << "random: scratch_norm " << gener_i << std::endl;
 	std::uniform_int_distribution<> distrib(0, _max_);
-	// auto& gen = getRndGen();
-	// u = (double)distrib(gen)/(double)_max_;
+	auto& gen = getRndGen();
+	u = (double)distrib(gen)/(double)_max_;
 	for (size_t i = 0; i < proba.size(); i++)
 		if (u < proba.at(i))
 			return i;
@@ -101,7 +116,7 @@ enum class Terrain
 	Eau
 };
 
-void charger_France(std::string carte_input, std::vector<std::vector<Terrain>> &carte)
+void charger_France(std::string carte_input, std::vector<std::vector<Terrain>> &carte, glm::ivec2 &dimensions, int km_par_px)
 {
 	std::ifstream ifs(carte_input, std::ios::binary);
 	if (!ifs.is_open()) {
@@ -113,7 +128,7 @@ void charger_France(std::string carte_input, std::vector<std::vector<Terrain>> &
 	while (ifs.read(buffer, 1)) {
 		auto row = std::vector<size_t>();
 		while (true) {
-			row.emplace_back((size_t)('0'+(buffer[0]&0xFF)));
+			row.emplace_back((buffer[0]&0xFF)-(int)'0');
 			ifs.read(buffer, 1);
 			if ((buffer[0]&0xff) == 0x0A) {
 				break;
@@ -121,14 +136,32 @@ void charger_France(std::string carte_input, std::vector<std::vector<Terrain>> &
 		}
 		lines.emplace_back(row);
 	}
-	for (auto &line : lines) {
-		for (auto &e : line) {
-			std::cout << e;
+	// for (auto &line : lines) {
+	// 	for (auto &e : line) {
+	// 		std::cout << e;
+	// 	}
+	// 	std::cout << std::endl;
+	// }
+	// std::cout << std::endl;
+        int delta_eau = 5;
+        dimensions.x = km_par_px*(lines.at(0).size()-1)+2*delta_eau;
+	dimensions.y = km_par_px*(lines.size()-1)+2*delta_eau;
+	for (int j = 0; j < dimensions.y+2*delta_eau; j++) {
+		auto row = std::vector<Terrain>();
+		for (int i = 0; i < dimensions.x+2*delta_eau; i++) {
+			row.emplace_back(Terrain::Eau);
 		}
-		std::cout << std::endl;
+		carte.emplace_back(row);
 	}
-	std::cout << std::endl;
-
+	for (int j = 0; j < dimensions.y-2*delta_eau; j++) {
+		for (int i = 0; i < dimensions.x-2*delta_eau; i++) {
+			for (int l = j+delta_eau; l < j+delta_eau+km_par_px; l++) {
+				for (int k = i+delta_eau; k < i+delta_eau+km_par_px; k++) {
+					carte.at(l).at(k) = static_cast<Terrain>(lines.at(j).at(i));
+				}
+			}
+		}
+	}
 
 //     with open(carte_input, 'r') as cfl:
 //         lignes = cfl.readlines()
@@ -143,12 +176,12 @@ void charger_France(std::string carte_input, std::vector<std::vector<Terrain>> &
 
 class Drawable_Thing
 {
-	sf::RectangleShape create_rect(size_t taille_brique, sf::Color &color)
+	sf::RectangleShape create_rect(size_t taille_brique, double size, sf::Color &color)
 	{
 		sf::RectangleShape rectangle;
-		rectangle.setSize(sf::Vector2f(taille_brique, taille_brique));
+		rectangle.setSize(sf::Vector2f(taille_brique*size, taille_brique*size));
 		rectangle.setFillColor(color);
-		rectangle.setPosition(position.x*taille_brique, position.y*taille_brique);
+		rectangle.setPosition((position.x-(size-1)/2)*taille_brique, (position.y-(size-1)/2)*taille_brique);
 		return rectangle;
 	}
 
@@ -159,9 +192,9 @@ public:
 		rectangle.setPosition(position.x*taille_brique, position.y*taille_brique);
 	}
 
-	Drawable_Thing(glm::ivec2 position, size_t taille_brique, sf::Color color) :
+	Drawable_Thing(glm::ivec2 position, size_t taille_brique, double size, sf::Color color) :
 		position(position),
-		rectangle(create_rect(taille_brique, color))
+		rectangle(create_rect(taille_brique, size, color))
 	{
 	}
 
@@ -184,7 +217,7 @@ class Case : public Drawable_Thing
 
 public:
 	Case(glm::ivec2 position, Terrain terrain, size_t taille_brique) :
-		Drawable_Thing(position, taille_brique, terrain_to_color(terrain)),
+		Drawable_Thing(position, taille_brique, 1, terrain_to_color(terrain)),
 		terrain(terrain)
 	{
 	}
@@ -222,11 +255,10 @@ public:
 	glm::ivec2 direction_free(glm::ivec2 &dimensions, std::vector<double> &qualite, std::vector<std::vector<Terrain>> &carte)
 	{
 		std::uniform_int_distribution<> distrib(0, _max_);
-		// auto& gen = getRndGen();
+		auto& gen = getRndGen();
 		auto vec = glm::ivec2(0, 0);
-		// double u = (double)distrib(gen)/(double)_max_;
-		double u = gener.at(gener_i);
-		gener_i++;
+		double u = (double)distrib(gen)/(double)_max_;
+		// double u = scratch_random();
 		// std::cout << "random: direction_free " << gener_i << std::endl;
 		double qterrainEst;
 		if (position.x+1 > dimensions.x-1) // Est
@@ -370,8 +402,8 @@ public:
 	}
 	
 	// Initialise les caractéristiques des nouveaux individus
-	Lynx(glm::ivec2 position, size_t taille_brique, sf::Color color, size_t age, double energie) :
-		Drawable_Thing(position, taille_brique, color),
+	Lynx(glm::ivec2 position, size_t taille_brique, double size, sf::Color color, size_t age, double energie) :
+		Drawable_Thing(position, taille_brique, size, color),
 		age(age),
 		statut(class_age()),
 		energie(energie)
