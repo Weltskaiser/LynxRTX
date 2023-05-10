@@ -71,7 +71,7 @@ size_t scratch_norm(std::vector<double> typ)
 	// std::cout << "random: scratch_norm " << gener_i << std::endl;
 	std::uniform_int_distribution<> distrib(0, _max_);
 	auto& gen = getRndGen();
-	u = (double)distrib(gen)/(double)_max_;
+	double u = (double)distrib(gen)/(double)_max_;
 	for (size_t i = 0; i < proba.size(); i++)
 		if (u < proba.at(i))
 			return i;
