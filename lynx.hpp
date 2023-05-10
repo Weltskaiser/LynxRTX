@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <string>
+#include <cstring>
 #include <glm/vec2.hpp>
 #include <cmath>
 #include <random>
